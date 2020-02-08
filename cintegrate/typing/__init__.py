@@ -1,1 +1,1 @@
-from .builder import get_class
+from .builder import Builder
