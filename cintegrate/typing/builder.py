@@ -42,13 +42,17 @@ def map_pointer(cu, die, builder):
 
 def map_structure(cu, die, builder):
     name = 'unknown_struct' if 'DW_AT_name' not in die.attributes else die.attributes['DW_AT_name'].value.decode('utf-8')
-    fields = [(child.attributes['DW_AT_name'].value.decode('utf-8'), builder(cu, die_from_offset(cu, child.attributes['DW_AT_type'].value))) for child in die.iter_children()]
+    fields = [(child.attributes['DW_AT_name'].value.decode('utf-8'), builder(cu, die_from_offset(cu, child.attributes['DW_AT_type'].value))) for child in die.iter_children()
+                if child.tag == 'DW_TAG_member']
+    fields = list(filter(lambda x: x[1] is not None, fields))
     res_cls = type(name, (ctypes.Structure,), {'_fields_': fields})
     return res_cls
 
 def map_union(cu, die, builder):
     name = 'unknown_union' if 'DW_AT_name' not in die.attributes else die.attributes['DW_AT_name'].value.decode('utf-8')
-    fields = [(child.attributes['DW_AT_name'].value.decode('utf-8'), builder(cu, die_from_offset(cu, child.attributes['DW_AT_type'].value))) for child in die.iter_children()]
+    fields = [(child.attributes['DW_AT_name'].value.decode('utf-8'), builder(cu, die_from_offset(cu, child.attributes['DW_AT_type'].value))) for child in die.iter_children()
+                if child.tag == 'DW_TAG_member']
+    fields = list(filter(lambda x: x[1] is not None, fields))
     res_cls = type(name, (ctypes.Union,), {'_fields_': fields})
     return res_cls
 
@@ -72,12 +76,48 @@ def map_declaration(cu, die, builder):
     res.__name__ = res_name.decode('utf-8')
     return res
 
+def map_class(cu, die, builder):
+    res_name = die.attributes['DW_AT_name'].value.decode('utf-8')
+    fields = []
+    anonymous  = ()
+    anonymous_count = 0
+    # constructors = []
+    # functions = {}
+    for subdie in die.iter_children():
+        if subdie.tag == 'DW_TAG_member':
+            # TODO: anonymous for all complex types
+            if 'DW_AT_name' not in subdie.attributes:
+                name = '__anon__' + str(anonymous_count)
+                anonymous_count += 1
+                anonymous = tuple(list(anonymous) + [name])
+            else:
+                name = subdie.attributes['DW_AT_name'].value.decode('utf-8')
+
+            fields.append((name, builder(cu, die_from_offset(cu, subdie.attributes['DW_AT_type'].value))))
+
+        elif subdie.tag == 'DW_TAG_subprogram':
+            if 'DW_AT_name' in subdie.attributes and subdie.attributes['DW_AT_name'].value == res_name.encode('utf-8'):
+                # add to constructor
+                # first arg is a pointer to self - a struct
+                pass
+            else:
+                # add to functions
+                pass
+    # fields = [(child.attributes['DW_AT_name'].value.decode('utf-8'), builder(cu, die_from_offset(cu, child.attributes['DW_AT_type'].value))) for child in die.iter_children()]
+
+    fields = list(filter(lambda x: x[1] is not None, fields))
+    # inner_struct = type(res_name + '_inner_struct', (ctypes.Structure,), {'_fields_': fields, '_anonymous_': anonymous})
+    return type(res_name, (ctypes.Structure,), {'_fields_': fields, '_anonymous_': anonymous})
+    
+    # return type(res_name, (), {'__inner_struct__': inner_struct})
+
+
 TYPE_GETTERS = {
     'DW_TAG_typedef': map_typedef,
     'DW_TAG_base_type': map_base_type,
     'DW_TAG_pointer_type': map_pointer,
     'DW_TAG_array_type': None,
-    'DW_TAG_class_type': None,
+    'DW_TAG_class_type': map_class,
     'DW_TAG_const_type': None,
     'DW_TAG_enumeration_type': None,
     'DW_TAG_interface_type': None,

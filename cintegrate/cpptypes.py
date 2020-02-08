@@ -1,6 +1,6 @@
 from pathlib import PurePath
 from elftools.elf.elffile import ELFFile
-from .typing import get_class
+from typing import get_class
 import ctypes
 
 def die_from_offset(cu, offset):
@@ -46,9 +46,4 @@ def get_all_user_types(filename):
 
 if __name__ == "__main__":
     filename = './test/resources/cpp_test_file.so'
-    with open(str(filename), 'rb') as f:
-        elffile = ELFFile(f)
-        dwarf_info = elffile.get_dwarf_info()
-        cu = list(dwarf_info.iter_CUs())[0]
-        die = [die for die in (cu.iter_DIEs()) if 'DW_AT_name' in die.attributes and die.attributes['DW_AT_name'].value == 'do_stuff'.encode('utf-8')][0]
-        print(die)
+    print(get_type_from_file(filename, 'MyClass'))
