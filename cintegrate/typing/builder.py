@@ -54,9 +54,7 @@ def map_declaration(die, builder):
     res_name = die.attributes['DW_AT_name'].value
     res_types = [res_die for res_die in (builder.cu.iter_DIEs()) if is_declaration(builder.cu, res_name, res_die)]
     if len(res_types) != 1:
-        # print(die)
-        # raise ValueError
-        return None
+        raise ValueError
     res = builder.map(res_types[0])
     res.__name__ = res_name.decode('utf-8')
     return res
@@ -65,7 +63,10 @@ def map_subprogram(die, builder):
     if 'DW_AT_linkage_name' not in die.attributes and 'DW_AT_name' not in die.attributes:
         raise TypeError
     linkage_name = die.attributes['DW_AT_name'].value.decode('utf-8') if 'DW_AT_linkage_name' not in die.attributes else die.attributes['DW_AT_linkage_name'].value.decode('utf-8')
-    func = getattr(ctypes.cdll.LoadLibrary(str(builder.filename)), linkage_name)
+    try:
+        func = getattr(ctypes.cdll.LoadLibrary(str(builder.filename)), linkage_name)
+    except AttributeError:
+        return None
     param = [subdie for subdie in die.iter_children() if subdie.tag == 'DW_TAG_formal_parameter']
     param_types = [builder.map(builder.get_die(subdie.attributes['DW_AT_type'].value)) for subdie in param]
     func.argtypes = param_types
@@ -99,17 +100,26 @@ TYPE_GETTERS = {
     'DW_TAG_volatile_type': None,
 }
 
+IGNORE_DECLARATION = ['DW_TAG_subprogram']
+
 class Builder:
     def __init__(self, filename, cu):
         self.filename = filename
         self.cu = cu
+        self.cache = {}
 
     def get_die(self, offset):
         return die_from_offset(self.cu, offset)
 
     def map(self, die):
-        if 'DW_AT_declaration' in die.attributes and die.attributes['DW_AT_declaration'].value:
-            # return map_declaration(die, self)
-            return None
+        print(die.offset)
+        if die.offset in self.cache:
+            return self.cache[die.offset]
+        res = None
+        if die.tag not in IGNORE_DECLARATION and 'DW_AT_declaration' in die.attributes and die.attributes['DW_AT_declaration'].value:
+            res = map_declaration(die, self)
         if die.tag in TYPE_GETTERS and TYPE_GETTERS[die.tag]:
-            return TYPE_GETTERS[die.tag](die, self)
+            res = TYPE_GETTERS[die.tag](die, self)
+        if res:
+            self.cache[die.offset] = res
+            return res

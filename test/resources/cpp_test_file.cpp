@@ -9,14 +9,18 @@ struct my_struct {
 class MyClass {
     public:
         int bla;
-        std::string stuff;
-        MyClass(int bla, const std::string stuff) {
+        char *stuff;
+        MyClass(int bla, char *stuff) {
             this->bla = bla;
             this->stuff = stuff;
             std::cout << "New MyClass!" << std::endl;
         }
+        int bla_times_two();
 };
 
+int MyClass::bla_times_two() {
+    return 13;
+}
 
 struct my_struct do_stuff(int my_arg, char *second_arg)
 {
