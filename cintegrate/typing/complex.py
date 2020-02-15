@@ -38,8 +38,8 @@ def map_complex(die, builder, complex_type):
         def func(self, *args, **kwargs):
             for curr_func in funcs:
                 try:
-                    return curr_func(*args, **kwargs)
-                except TypeError:
+                    return curr_func(ctypes.pointer(self), *args, **kwargs)
+                except ctypes.ArgumentError:
                     pass
             raise TypeError('no matching function!')
         setattr(res_class, name.decode('utf-8'), func)

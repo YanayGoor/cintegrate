@@ -37,7 +37,9 @@ def map_pointer(die, builder):
         return None
     if ctypes.c_char in res_cls.mro():
         return ctypes.c_char_p
-    return type(res_cls.__name__ + '_pointer', (ctypes.POINTER(res_cls),), {})
+    res_p_cls = ctypes.POINTER(res_cls)
+    res_p_cls.__name__ = res_cls.__name__ + '_pointer'
+    return res_p_cls
 
 def is_declaration(cu, name, die):
     if die.tag == 'DW_TAG_variable':
@@ -70,7 +72,9 @@ def map_subprogram(die, builder):
     param = [subdie for subdie in die.iter_children() if subdie.tag == 'DW_TAG_formal_parameter']
     param_types = [builder.map(builder.get_die(subdie.attributes['DW_AT_type'].value)) for subdie in param]
     func.argtypes = param_types
-    func.restype = builder.map(builder.get_die(die.attributes['DW_AT_type'].value))
+    if 'DW_AT_type' in die.attributes:
+        # if there is no type it is void.
+        func.restype = builder.map(builder.get_die(die.attributes['DW_AT_type'].value))
     return func
 
 TYPE_GETTERS = {
@@ -112,7 +116,6 @@ class Builder:
         return die_from_offset(self.cu, offset)
 
     def map(self, die):
-        print(die.offset)
         if die.offset in self.cache:
             return self.cache[die.offset]
         res = None

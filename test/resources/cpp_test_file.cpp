@@ -19,7 +19,7 @@ class MyClass {
 };
 
 int MyClass::bla_times_two() {
-    return 13;
+    return this->bla * 2;
 }
 
 struct my_struct do_stuff(int my_arg, char *second_arg)
